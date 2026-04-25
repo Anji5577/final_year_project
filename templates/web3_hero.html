@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hybrid QC-CNN</title>
+    <link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['General Sans', 'sans-serif'],
+                    },
+                    colors: {
+                        black: '#000000',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #000000;
+            color: white;
+            margin: 0;
+            font-family: 'General Sans', sans-serif;
+            overflow-x: hidden;
+        }
+
+        .hero-title-text {
+            color: #ffffff;
+            text-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+            letter-spacing: -0.02em;
+        }
+
+        .button-top-glow {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 70%;
+            height: 2px;
+            background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.9) 50%, rgba(255,255,255,0) 100%);
+            filter: blur(4px);
+            border-radius: 999px;
+            pointer-events: none;
+        }
+
+        /* Navbar spacing and mobile hide */
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+        }
+
+        .dropzone {
+            border: 1.5px dashed rgba(255, 255, 255, 0.3);
+            border-radius: 16px;
+            padding: 24px 16px;
+            text-align: center;
+            transition: all 0.2s ease;
+            background: rgba(255, 255, 255, 0.02);
+            cursor: pointer;
+        }
+
+        .dropzone.dragover {
+            border-color: rgba(255, 255, 255, 0.8);
+            background: rgba(255, 255, 255, 0.08);
+        }
+    </style>
+</head>
+<body class="bg-black">
+    <!-- Fullscreen Video Background -->
+    <div class="fixed inset-0 w-full h-full overflow-hidden -z-10">
+        <video 
+            autoplay 
+            muted 
+            loop 
+            playsinline 
+            class="absolute min-w-full min-h-full object-cover"
+        >
+            <source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260217_030345_246c0224-10a4-422c-b324-070b7c0eceda.mp4" type="video/mp4">
+        </video>
+        <div class="absolute inset-0 bg-black/50"></div>
+    </div>
+
+    <!-- Navbar -->
+    <nav class="flex items-center justify-between px-[20px] md:px-[120px] py-[20px] relative z-50">
+        <div class="flex items-center gap-[30px]">
+            <!-- Placeholder Logo -->
+            <div class="w-[187px] h-[25px] flex items-center">
+                <span class="text-white font-bold text-sm md:text-base tracking-tight">
+                    Hybrid QC-CNN
+                </span>
+            </div>
+        </div>
+        <a href="/model-card" class="inline-flex items-center justify-center rounded-full border border-white/20 px-4 py-2 text-[13px] font-medium text-white hover:border-white/40 transition">
+            Model Card
+        </a>
+    </nav>
+
+    <!-- Hero Content -->
+    <main class="min-h-screen flex flex-col items-center text-center pt-[200px] md:pt-[280px] pb-[102px] px-[20px] relative z-40">
+        <div class="flex flex-col items-center gap-[40px] max-w-4xl">
+            
+            <!-- Badge Pill -->
+            <div class="flex items-center gap-2 px-4 py-1.5 rounded-[20px] bg-transparent border border-white/20">
+                <div class="w-[4px] h-[4px] rounded-full bg-white"></div>
+                <p class="text-[13px] font-medium">
+                    <span class="text-white/60">Early access available from</span>
+                    <span class="text-white"> May 1, 2026</span>
+                </p>
+            </div>
+
+            <!-- Heading -->
+            <h1 class="hero-title-text text-[44px] md:text-[72px] font-semibold leading-[1.1] max-w-[900px]">
+                Hybrid QC-CNN
+            </h1>
+
+            <!-- Detection Form -->
+            <div class="w-full max-w-[520px] bg-white/5 border border-white/10 rounded-[32px] p-8 mt-10 backdrop-blur-xl">
+                <p class="text-white/70 text-[14px] mb-4">Drop one or more satellite images for anomaly ranking and explainability.</p>
+                <form method="post" action="/predict" enctype="multipart/form-data" class="flex flex-col gap-4">
+                    <input id="file-input" type="file" name="files" accept="image/*,.tif,.tiff" multiple required class="hidden" />
+                    <div id="dropzone" class="dropzone">
+                        <p class="text-white/90 text-sm font-medium">Drag & drop images here</p>
+                        <p class="text-white/60 text-xs mt-1">or click to browse files</p>
+                    </div>
+                    <div id="file-summary" class="text-white/60 text-xs text-left">No files selected.</div>
+                    <button type="submit" class="inline-flex items-center justify-center rounded-full bg-white px-8 py-3 text-[14px] font-medium text-black transition hover:bg-white/90">
+                        Analyze Images
+                    </button>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        (function () {
+            const input = document.getElementById("file-input");
+            const dropzone = document.getElementById("dropzone");
+            const summary = document.getElementById("file-summary");
+
+            function updateSummary() {
+                const files = input.files ? Array.from(input.files) : [];
+                if (!files.length) {
+                    summary.textContent = "No files selected.";
+                    return;
+                }
+                const names = files.slice(0, 5).map((f) => f.name).join(", ");
+                const extra = files.length > 5 ? ` +${files.length - 5} more` : "";
+                summary.textContent = `${files.length} file(s): ${names}${extra}`;
+            }
+
+            dropzone.addEventListener("click", () => input.click());
+            input.addEventListener("change", updateSummary);
+
+            ["dragenter", "dragover"].forEach((eventName) => {
+                dropzone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.add("dragover");
+                });
+            });
+
+            ["dragleave", "drop"].forEach((eventName) => {
+                dropzone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.remove("dragover");
+                });
+            });
+
+            dropzone.addEventListener("drop", (e) => {
+                const dropped = e.dataTransfer ? e.dataTransfer.files : null;
+                if (!dropped || !dropped.length) {
+                    return;
+                }
+                input.files = dropped;
+                updateSummary();
+            });
+        })();
+    </script>
+</body>
+</html>

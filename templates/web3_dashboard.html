@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Result Dashboard</title>
+    <link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        body {
+            background: #02060d;
+            color: #ffffff;
+            margin: 0;
+            font-family: "General Sans", sans-serif;
+        }
+        .panel {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 18px;
+            backdrop-filter: blur(16px);
+        }
+        .preview-stack {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.02);
+        }
+        .preview-stack img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .score-gauge .gauge-progress {
+            stroke-dasharray: 314.159;
+            stroke-dashoffset: 314.159;
+            transition: stroke-dashoffset 1.2s ease-out;
+        }
+        .table-wrap {
+            overflow-x: auto;
+        }
+        .channel-row {
+            display: grid;
+            grid-template-columns: 48px 1fr 64px;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        .channel-bar-wrap {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.09);
+            border-radius: 999px;
+            height: 8px;
+            overflow: hidden;
+        }
+        .channel-bar {
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #6fd3ff 0%, #ffffff 100%);
+        }
+        .compare-grid {
+            display: grid;
+            gap: 12px;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+        @media (max-width: 900px) {
+            .compare-grid {
+                grid-auto-flow: column;
+                grid-auto-columns: 88%;
+                overflow-x: auto;
+                scroll-snap-type: x mandatory;
+                padding-bottom: 6px;
+            }
+            .compare-panel {
+                scroll-snap-align: start;
+            }
+        }
+        .crosshair {
+            position: absolute;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.08s linear;
+        }
+        .crosshair-v {
+            width: 1px;
+            background: rgba(255, 255, 255, 0.9);
+            top: 0;
+            bottom: 0;
+        }
+        .crosshair-h {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.9);
+            left: 0;
+            right: 0;
+        }
+        .card-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .split-viewer {
+            max-width: 860px;
+            margin: 24px auto;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.18);
+        }
+        .split-viewer-stage {
+            position: relative;
+            display: flex;
+            height: 340px;
+            background: #07141d;
+        }
+        .split-half {
+            width: 50%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+        .split-half img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .split-divider {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            width: 2px;
+            transform: translateX(-50%);
+            background: #00b4b4;
+            z-index: 2;
+        }
+        .split-badge {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            background: #00b4b4;
+            color: #fff;
+            border-radius: 4px;
+            padding: 8px 14px;
+            font-weight: 700;
+            text-align: center;
+            line-height: 1.25;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+            white-space: nowrap;
+        }
+        .split-badge::before,
+        .split-badge::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 0;
+            height: 0;
+            border-top: 9px solid transparent;
+            border-bottom: 9px solid transparent;
+        }
+        .split-badge::before {
+            left: -10px;
+            border-right: 10px solid #00b4b4;
+        }
+        .split-badge::after {
+            right: -10px;
+            border-left: 10px solid #00b4b4;
+        }
+        .split-corner-label {
+            position: absolute;
+            bottom: 0;
+            background: #b8860b;
+            color: #fff;
+            padding: 6px 14px;
+            font-weight: 700;
+            font-size: 12px;
+            letter-spacing: 0.02em;
+            z-index: 4;
+        }
+        .split-corner-label.left {
+            left: 0;
+        }
+        .split-corner-label.right {
+            right: 0;
+        }
+        .split-caption {
+            margin: 10px 4px 2px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.72);
+            text-align: center;
+        }
+        @media (max-width: 600px) {
+            .split-viewer-stage {
+                display: block;
+                height: auto;
+            }
+            .split-half {
+                width: 100%;
+                height: 220px;
+            }
+            .split-divider,
+            .split-badge {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-10">
+        <header class="panel p-5 md:p-6 mb-6">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-semibold">Interactive Anomaly Dashboard</h1>
+                    <p class="text-white/65 text-sm mt-1">
+                        Generated at {{ generated_at }} | Threshold: {{ threshold }} | Sorted by anomaly score (highest first)
+                    </p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button id="export-csv" class="px-4 py-2 rounded-full border border-white/20 text-sm hover:border-white/50">Export CSV</button>
+                    <button id="export-json" class="px-4 py-2 rounded-full border border-white/20 text-sm hover:border-white/50">Export JSON</button>
+                    <button id="bulk-json" class="px-4 py-2 rounded-full bg-white text-black text-sm font-medium hover:bg-white/90">Bulk Download JSON</button>
+                    <a href="/" class="px-4 py-2 rounded-full border border-white/20 text-sm hover:border-white/50">New Upload</a>
+                </div>
+            </div>
+        </header>
+
+        <section class="panel p-5 md:p-6 mb-6">
+            <h2 class="text-lg font-semibold mb-4">Session History (Last 10 Predictions)</h2>
+            <div class="table-wrap">
+                <table class="w-full text-sm border-collapse">
+                    <thead>
+                        <tr class="text-left text-white/70 border-b border-white/15">
+                            <th class="py-2 pr-4">Time</th>
+                            <th class="py-2 pr-4">File</th>
+                            <th class="py-2 pr-4">Status</th>
+                            <th class="py-2 pr-4">Score</th>
+                            <th class="py-2">Margin</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for h in history %}
+                        <tr class="border-b border-white/10">
+                            <td class="py-2 pr-4 text-white/70">{{ h.timestamp }}</td>
+                            <td class="py-2 pr-4">{{ h.filename }}</td>
+                            <td class="py-2 pr-4">{{ h.status }}</td>
+                            <td class="py-2 pr-4">{{ h.score }}</td>
+                            <td class="py-2">{{ h.margin }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="py-3 text-white/60">No history yet in this session.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="grid grid-cols-1 gap-6">
+            {% for row in results %}
+            <article id="result-card-{{ loop.index }}" class="panel p-5 md:p-6">
+                <div class="flex items-start justify-between gap-4 mb-4">
+                    <div>
+                        <p class="text-sm text-white/60">Image {{ loop.index }}</p>
+                        <h3 class="text-base md:text-lg font-semibold break-all">{{ row.filename }}</h3>
+                    </div>
+                    <span class="px-3 py-1 rounded-full text-xs font-semibold" style="background-color: {{ row.color }};">
+                        {{ row.status }}
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+                    <div class="panel p-4">
+                        <p class="text-xs text-white/65 mb-2">Animated Score Gauge</p>
+                        <div class="flex items-center justify-center">
+                            <svg class="score-gauge" width="140" height="140" viewBox="0 0 140 140" data-score="{{ row.score_float }}" data-threshold="{{ threshold_float }}">
+                                <circle cx="70" cy="70" r="50" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="10"></circle>
+                                <circle class="gauge-progress" cx="70" cy="70" r="50" fill="none" stroke="{{ row.color }}" stroke-width="10" transform="rotate(-90 70 70)"></circle>
+                                <line x1="70" y1="16" x2="70" y2="24" stroke="#f9ab00" stroke-width="3" transform="rotate({{ threshold_float * 360 - 90 }} 70 70)"></line>
+                                <text x="70" y="68" text-anchor="middle" fill="#fff" font-size="18" font-weight="700">{{ row.score }}</text>
+                                <text x="70" y="86" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="10">Threshold {{ row.threshold }}</text>
+                            </svg>
+                        </div>
+                        <p class="text-xs text-white/70 mt-2">Score: {{ row.score }} ± {{ row.sigma }} (σ)</p>
+                        <p class="text-xs text-white/60 mt-1">CI: [{{ row.ci_low }}, {{ row.ci_high }}] from {{ row.tta_views }} TTA views, calibrated T={{ "%.2f"|format(row.calibration_t) }}</p>
+                        <p class="text-xs text-white/60 mt-1">Margin: {{ row.margin }}</p>
+                        <p class="text-xs text-white/60 mt-1">{{ row.message }}</p>
+                    </div>
+
+                    <div class="panel p-4">
+                        <p class="text-xs text-white/65 mb-3">Explainability Controls</p>
+                        <div class="flex gap-3 mb-3">
+                            <label class="text-xs text-white/80 flex items-center gap-1">
+                                <input type="radio" name="class-toggle-{{ loop.index }}" value="anomaly" checked class="class-toggle">
+                                Anomaly
+                            </label>
+                            <label class="text-xs text-white/80 flex items-center gap-1">
+                                <input type="radio" name="class-toggle-{{ loop.index }}" value="normal" class="class-toggle">
+                                Normal
+                            </label>
+                        </div>
+                        <label class="text-xs text-white/80 flex items-center gap-2 mb-3">
+                            <input type="checkbox" class="overlay-toggle" data-target="overlay-{{ loop.index }}" checked>
+                            Show saliency overlay
+                        </label>
+                        <label class="text-xs text-white/70 block mb-1">Overlay opacity</label>
+                        <input type="range" min="0" max="100" value="45" class="opacity-slider w-full" data-target="overlay-{{ loop.index }}">
+                        <p class="text-xs text-white/55 mt-3">Method: {{ row.explain_method }}</p>
+                        <div class="card-actions mt-3">
+                            <button class="export-pdf px-3 py-1.5 rounded-full border border-white/20 text-xs hover:border-white/50" data-card="result-card-{{ loop.index }}" data-file="{{ row.filename }}">
+                                Export PDF Report
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="panel p-4">
+                        <p class="text-xs text-white/65 mb-3">Quantum vs Classical A/B</p>
+                        <p class="text-xs text-white/75">Quantum score: {{ "%.6f"|format(row.ab_compare.quantum_score) }}</p>
+                        <p class="text-xs text-white/75 mt-1">Classical score: {{ "%.6f"|format(row.ab_compare.classical_score) }}</p>
+                        <p class="text-xs mt-1 {% if row.ab_compare.quantum_delta >= 0 %}text-green-300{% else %}text-red-300{% endif %}">
+                            quantum_advantage (Δ): {{ "%+.6f"|format(row.ab_compare.quantum_delta) }}
+                        </p>
+                        <p class="text-xs text-white/60 mt-2">Models: {{ row.ab_compare.quantum_model }} vs {{ row.ab_compare.classical_model }}</p>
+                    </div>
+                </div>
+
+                <div class="panel p-4 mb-4">
+                    <p class="text-xs text-white/70 mb-3">Per-Channel Band Contribution (|∂logit/∂x| norm)</p>
+                    {% for band in row.channel_contributions %}
+                    <div class="channel-row">
+                        <span class="text-xs text-white/70">{{ band.channel }}</span>
+                        <div class="channel-bar-wrap">
+                            <div class="channel-bar" style="width: {{ "%.2f"|format(band.percent) }}%;"></div>
+                        </div>
+                        <span class="text-xs text-white/70 text-right">{{ "%.1f"|format(band.percent) }}%</span>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="panel p-4">
+                    <p class="text-xs text-white/70 mb-2">Synced Side-by-Side Comparison</p>
+                    <div class="compare-grid compare-root" data-card-id="{{ loop.index }}">
+                        <div class="compare-panel" data-compare-panel>
+                            <p class="text-xs text-white/60 mb-2">Original</p>
+                            <div class="preview-stack" data-crosshair-box>
+                                <img src="data:image/png;base64,{{ row.input_image_base64 }}" alt="Original image">
+                                <div class="crosshair crosshair-v" data-cross-v></div>
+                                <div class="crosshair crosshair-h" data-cross-h></div>
+                            </div>
+                        </div>
+                        <div class="compare-panel" data-compare-panel>
+                            <p class="text-xs text-white/60 mb-2">GradCAM Overlay</p>
+                            <div class="preview-stack" data-crosshair-box>
+                                <img src="data:image/png;base64,{{ row.input_image_base64 }}" alt="Base">
+                                <img
+                                    id="overlay-{{ loop.index }}"
+                                    class="overlay-layer"
+                                    src="data:image/png;base64,{{ row.heatmap_anomaly_base64 }}"
+                                    data-anomaly="data:image/png;base64,{{ row.heatmap_anomaly_base64 }}"
+                                    data-normal="data:image/png;base64,{{ row.heatmap_normal_base64 }}"
+                                    style="opacity: 0.45;"
+                                    alt="Heatmap overlay"
+                                >
+                                <div class="crosshair crosshair-v" data-cross-v></div>
+                                <div class="crosshair crosshair-h" data-cross-h></div>
+                            </div>
+                        </div>
+                        <div class="compare-panel" data-compare-panel>
+                            <p class="text-xs text-white/60 mb-2">Annotated (Attention Rollout)</p>
+                            <div class="preview-stack" data-crosshair-box>
+                                <img src="data:image/png;base64,{{ row.input_image_base64 }}" alt="Base">
+                                <img src="data:image/png;base64,{{ row.rollout_heatmap_base64 }}" alt="Attention rollout" style="opacity: 0.45;">
+                                <div class="crosshair crosshair-v" data-cross-v></div>
+                                <div class="crosshair crosshair-h" data-cross-h></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="split-viewer">
+                    <div class="split-viewer-stage">
+                        <div class="split-half">
+                            <img src="data:image/png;base64,{{ row.input_image_base64 }}" alt="Input satellite image">
+                            <span class="split-corner-label left">INPUT</span>
+                        </div>
+                        <div class="split-half">
+                            <img src="data:image/png;base64,{{ row.rollout_overlay_base64 }}" alt="GradCAM anomaly overlay output">
+                            <span class="split-corner-label right">OUTPUT</span>
+                        </div>
+                        <div class="split-divider"></div>
+                        <div class="split-badge">
+                            <div>{{ row.status }}</div>
+                            <div>Anomaly Score</div>
+                            <div>{{ row.score }}</div>
+                        </div>
+                    </div>
+                    <p class="split-caption">GradCAM attention rollout overlay · Explainability method: {{ row.explain_method }}</p>
+                </div>
+            </article>
+            {% endfor %}
+        </section>
+    </main>
+
+    <script>
+        (function () {
+            const exportRows = {{ export_rows | tojson }};
+            const threshold = {{ threshold_float }};
+
+            function downloadText(filename, content, mimeType) {
+                const blob = new Blob([content], { type: mimeType });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+            }
+
+            function toCsv(rows) {
+                if (!rows.length) {
+                    return "timestamp,filename,status,score,sigma,ci_low,ci_high,tta_views,calibration_t,threshold,margin,explainability_method,quantum_score,classical_score,quantum_delta\n";
+                }
+                const headers = Object.keys(rows[0]);
+                const esc = (val) => `"${String(val).replace(/"/g, '""')}"`;
+                const lines = [headers.join(",")];
+                rows.forEach((row) => {
+                    lines.push(headers.map((h) => esc(row[h])).join(","));
+                });
+                return lines.join("\n");
+            }
+
+            document.getElementById("export-csv").addEventListener("click", () => {
+                const csv = toCsv(exportRows);
+                downloadText("hybrid_qccnn_results.csv", csv, "text/csv;charset=utf-8");
+            });
+
+            document.getElementById("export-json").addEventListener("click", () => {
+                downloadText("hybrid_qccnn_results.json", JSON.stringify(exportRows, null, 2), "application/json;charset=utf-8");
+            });
+
+            document.getElementById("bulk-json").addEventListener("click", () => {
+                downloadText("hybrid_qccnn_bulk_results.json", JSON.stringify({ threshold, results: exportRows }, null, 2), "application/json;charset=utf-8");
+            });
+
+            document.querySelectorAll(".score-gauge").forEach((gauge) => {
+                const progress = gauge.querySelector(".gauge-progress");
+                const score = Number(gauge.dataset.score || 0);
+                const clamped = Math.max(0, Math.min(1, score));
+                const circumference = 2 * Math.PI * 50;
+                const targetOffset = circumference * (1 - clamped);
+                requestAnimationFrame(() => {
+                    progress.style.strokeDasharray = `${circumference}`;
+                    progress.style.strokeDashoffset = `${targetOffset}`;
+                });
+            });
+
+            document.querySelectorAll(".overlay-layer").forEach((overlayLayer) => {
+                const id = overlayLayer.id;
+                const cardId = id.split("-")[1];
+                const toggle = document.querySelector(`.overlay-toggle[data-target='${id}']`);
+                const slider = document.querySelector(`.opacity-slider[data-target='${id}']`);
+                const radios = document.querySelectorAll(`input[name='class-toggle-${cardId}']`);
+
+                function updateOverlaySource() {
+                    const checked = Array.from(radios).find((r) => r.checked);
+                    const cls = checked ? checked.value : "anomaly";
+                    overlayLayer.src = cls === "normal" ? overlayLayer.dataset.normal : overlayLayer.dataset.anomaly;
+                }
+
+                function updateOverlayOpacity() {
+                    const alpha = toggle.checked ? Number(slider.value || 45) / 100 : 0;
+                    overlayLayer.style.opacity = String(alpha);
+                }
+
+                radios.forEach((radio) => radio.addEventListener("change", updateOverlaySource));
+                toggle.addEventListener("change", updateOverlayOpacity);
+                slider.addEventListener("input", updateOverlayOpacity);
+                updateOverlaySource();
+                updateOverlayOpacity();
+            });
+
+            document.querySelectorAll(".compare-root").forEach((root) => {
+                const boxes = root.querySelectorAll("[data-crosshair-box]");
+
+                function setCrosshair(xRatio, yRatio, visible) {
+                    boxes.forEach((box) => {
+                        const crossV = box.querySelector("[data-cross-v]");
+                        const crossH = box.querySelector("[data-cross-h]");
+                        const rect = box.getBoundingClientRect();
+                        const x = Math.max(0, Math.min(rect.width, xRatio * rect.width));
+                        const y = Math.max(0, Math.min(rect.height, yRatio * rect.height));
+                        crossV.style.left = `${x}px`;
+                        crossH.style.top = `${y}px`;
+                        crossV.style.opacity = visible ? "1" : "0";
+                        crossH.style.opacity = visible ? "1" : "0";
+                    });
+                }
+
+                boxes.forEach((box) => {
+                    box.addEventListener("mousemove", (event) => {
+                        const rect = box.getBoundingClientRect();
+                        const xRatio = (event.clientX - rect.left) / Math.max(rect.width, 1);
+                        const yRatio = (event.clientY - rect.top) / Math.max(rect.height, 1);
+                        setCrosshair(xRatio, yRatio, true);
+                    });
+                    box.addEventListener("mouseleave", () => setCrosshair(0, 0, false));
+                });
+            });
+
+            document.querySelectorAll(".export-pdf").forEach((btn) => {
+                btn.addEventListener("click", async () => {
+                    const cardId = btn.getAttribute("data-card");
+                    const filename = btn.getAttribute("data-file") || "result";
+                    const card = document.getElementById(cardId);
+                    if (!card || !window.html2canvas || !window.jspdf) {
+                        return;
+                    }
+                    const canvas = await window.html2canvas(card, {
+                        backgroundColor: "#02060d",
+                        scale: 2,
+                        useCORS: true,
+                    });
+                    const imgData = canvas.toDataURL("image/png");
+                    const { jsPDF } = window.jspdf;
+                    const pdf = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
+                    const pageW = pdf.internal.pageSize.getWidth();
+                    const pageH = pdf.internal.pageSize.getHeight();
+                    const ratio = Math.min(pageW / canvas.width, pageH / canvas.height);
+                    const drawW = canvas.width * ratio;
+                    const drawH = canvas.height * ratio;
+                    const x = (pageW - drawW) / 2;
+                    const y = 20;
+                    pdf.addImage(imgData, "PNG", x, y, drawW, drawH);
+                    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+                    pdf.save(`report_${filename}_${stamp}.pdf`);
+                });
+            });
+        })();
+    </script>
+</body>
+</html>

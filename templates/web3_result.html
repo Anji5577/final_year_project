@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analysis Result - EOS</title>
+    <link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['General Sans', 'sans-serif'],
+                    },
+                    colors: {
+                        black: '#000000',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #000000;
+            color: white;
+            margin: 0;
+            font-family: 'General Sans', sans-serif;
+            overflow-x: hidden;
+        }
+        .hero-gradient-text {
+            background: linear-gradient(144.5deg, #FFFFFF 28%, rgba(0, 0, 0, 0) 115%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .xai-stack {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            overflow: hidden;
+            border-radius: 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.02);
+        }
+        .xai-stack img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+    </style>
+</head>
+<body class="bg-black">
+    <!-- Fullscreen Video Background -->
+    <div class="fixed inset-0 w-full h-full overflow-hidden -z-10">
+        <video autoplay muted loop playsinline class="absolute min-w-full min-h-full object-cover">
+            <source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260217_030345_246c0224-10a4-422c-b324-070b7c0eceda.mp4" type="video/mp4">
+        </video>
+        <div class="absolute inset-0 bg-black/50"></div>
+    </div>
+
+    <main class="min-h-screen flex flex-col items-center justify-center px-[20px] py-[102px] relative z-40">
+        <div class="w-full max-w-2xl bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 md:p-12 text-center">
+            <h1 class="hero-gradient-text text-4xl md:text-5xl font-medium mb-8">Analysis Result</h1>
+            
+            <div class="mb-8">
+                <span class="inline-block px-6 py-2 rounded-full text-white font-bold text-lg tracking-wider" style="background-color: {{ color }};">
+                    {{ status }}
+                </span>
+            </div>
+
+            <div class="space-y-4 text-left bg-white/5 rounded-xl p-6 border border-white/5 mb-8">
+                <div class="flex justify-between border-b border-white/10 pb-2">
+                    <span class="text-white/40">Anomaly score:</span>
+                    <span class="text-white font-medium">{{ score }}</span>
+                </div>
+                <div class="flex justify-between border-b border-white/10 pb-2">
+                    <span class="text-white/40">Threshold:</span>
+                    <span class="text-white font-medium">{{ threshold }}</span>
+                </div>
+                <div class="flex justify-between border-b border-white/10 pb-2">
+                    <span class="text-white/40">Margin:</span>
+                    <span class="text-white font-medium">{{ margin }}</span>
+                </div>
+                <p class="text-white/70 text-sm mt-4 leading-relaxed">
+                    {{ message }}
+                </p>
+            </div>
+
+            {% if input_image_base64 and heatmap_anomaly_base64 and heatmap_normal_base64 %}
+            <div class="mb-8 text-left">
+                <h2 class="text-white text-lg font-medium mb-3">Saliency & Explainability</h2>
+                <p class="text-white/60 text-xs mb-4">
+                    Method: {{ explain_method }}. Hotter areas indicate stronger contribution to the selected class logit.
+                </p>
+                <div class="bg-white/5 border border-white/10 rounded-xl p-4 mb-4">
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div class="flex items-center gap-4">
+                            <label class="text-xs text-white/70 flex items-center gap-2">
+                                <input type="radio" name="class-toggle" value="anomaly" checked class="accent-white">
+                                Anomaly Logit
+                            </label>
+                            <label class="text-xs text-white/70 flex items-center gap-2">
+                                <input type="radio" name="class-toggle" value="normal" class="accent-white">
+                                Normal Logit
+                            </label>
+                        </div>
+                        <div class="w-full md:w-[260px]">
+                            <label for="opacity-slider" class="text-xs text-white/70 block mb-2">
+                                Heatmap Opacity: <span id="opacity-value">45%</span>
+                            </label>
+                            <input id="opacity-slider" type="range" min="0" max="100" value="45" class="w-full">
+                        </div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white/5 border border-white/10 rounded-xl p-3">
+                        <p class="text-white/70 text-xs mb-2">Input</p>
+                        <img src="data:image/png;base64,{{ input_image_base64 }}" alt="Input image" class="w-full rounded-lg border border-white/10">
+                    </div>
+                    <div class="bg-white/5 border border-white/10 rounded-xl p-3">
+                        <p class="text-white/70 text-xs mb-2">Selected Heatmap</p>
+                        <img id="selected-heatmap-preview" src="data:image/png;base64,{{ heatmap_anomaly_base64 }}" alt="GradCAM heatmap" class="w-full rounded-lg border border-white/10">
+                    </div>
+                    <div class="bg-white/5 border border-white/10 rounded-xl p-3">
+                        <p class="text-white/70 text-xs mb-2">Live Overlay</p>
+                        <div class="xai-stack">
+                            <img src="data:image/png;base64,{{ input_image_base64 }}" alt="Input base layer">
+                            <img id="overlay-heatmap" src="data:image/png;base64,{{ heatmap_anomaly_base64 }}" alt="Overlay heatmap" style="opacity: 0.45;">
+                        </div>
+                    </div>
+                </div>
+                <p id="active-class-caption" class="text-white/55 text-xs mt-3">Viewing attribution for anomaly logit.</p>
+            </div>
+            {% endif %}
+
+            <a href="/" class="inline-block px-8 py-3 bg-white text-black font-medium rounded-full hover:bg-white/90 transition-all">
+                Analyze another image
+            </a>
+        </div>
+    </main>
+    {% if input_image_base64 and heatmap_anomaly_base64 and heatmap_normal_base64 %}
+    <script>
+        (function () {
+            const heatmapAnomaly = "data:image/png;base64,{{ heatmap_anomaly_base64 }}";
+            const heatmapNormal = "data:image/png;base64,{{ heatmap_normal_base64 }}";
+            const overlayHeatmap = document.getElementById("overlay-heatmap");
+            const heatmapPreview = document.getElementById("selected-heatmap-preview");
+            const slider = document.getElementById("opacity-slider");
+            const opacityValue = document.getElementById("opacity-value");
+            const caption = document.getElementById("active-class-caption");
+            const radios = document.querySelectorAll("input[name='class-toggle']");
+
+            function selectedClass() {
+                const checked = document.querySelector("input[name='class-toggle']:checked");
+                return checked ? checked.value : "anomaly";
+            }
+
+            function selectedHeatmap(className) {
+                return className === "normal" ? heatmapNormal : heatmapAnomaly;
+            }
+
+            function updateOpacity() {
+                const value = Number(slider.value || 45);
+                const alpha = Math.max(0, Math.min(100, value)) / 100;
+                overlayHeatmap.style.opacity = String(alpha);
+                opacityValue.textContent = `${Math.round(alpha * 100)}%`;
+            }
+
+            function updateClassView() {
+                const cls = selectedClass();
+                const src = selectedHeatmap(cls);
+                overlayHeatmap.src = src;
+                heatmapPreview.src = src;
+                caption.textContent = cls === "normal"
+                    ? "Viewing attribution for normal logit."
+                    : "Viewing attribution for anomaly logit.";
+            }
+
+            slider.addEventListener("input", updateOpacity);
+            radios.forEach((radio) => radio.addEventListener("change", updateClassView));
+            updateOpacity();
+            updateClassView();
+        })();
+    </script>
+    {% endif %}
+</body>
+</html>

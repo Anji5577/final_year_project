@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model Card - Hybrid QC-CNN</title>
+    <link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ["General Sans", "sans-serif"],
+                    },
+                },
+            },
+        };
+    </script>
+    <style>
+        body {
+            background-color: #000000;
+            color: #ffffff;
+            margin: 0;
+            font-family: "General Sans", sans-serif;
+        }
+        .hero-gradient-text {
+            background: linear-gradient(144.5deg, #ffffff 28%, rgba(0, 0, 0, 0) 115%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .table-wrap {
+            overflow-x: auto;
+        }
+        iframe {
+            border: 0;
+            width: 100%;
+            min-height: 700px;
+            background: #f4f7fb;
+            border-radius: 16px;
+        }
+    </style>
+</head>
+<body>
+    <main class="max-w-6xl mx-auto px-5 md:px-10 py-10 md:py-14">
+        <header class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+            <div>
+                <p class="text-white/60 text-sm tracking-wide uppercase mb-2">Model Card</p>
+                <h1 class="hero-gradient-text text-3xl md:text-5xl font-medium leading-tight">{{ paper_title }}</h1>
+            </div>
+            <div class="flex gap-3">
+                <a href="/" class="inline-flex items-center justify-center rounded-full border border-white/20 px-5 py-2.5 text-sm text-white hover:border-white/40">
+                    Back to Detector
+                </a>
+                <a href="/visualization" class="inline-flex items-center justify-center rounded-full bg-white text-black px-5 py-2.5 text-sm font-medium hover:bg-white/90">
+                    Open Full Visualization
+                </a>
+            </div>
+        </header>
+
+        <section class="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 md:p-8 mb-7">
+            <h2 class="text-xl font-semibold mb-3">Paper Metadata</h2>
+            <p class="text-white/80 mb-2">{{ paper_authors }}</p>
+            <p class="text-white/70 mb-4">{{ paper_affiliation }}</p>
+            <p class="text-white/70 leading-relaxed mb-4">{{ paper_abstract }}</p>
+            <p class="text-white/75 mb-2"><span class="text-white font-medium">Keywords:</span> {{ paper_keywords }}</p>
+            <p class="text-white/70"><span class="text-white font-medium">Contacts:</span> {{ paper_contacts }}</p>
+        </section>
+
+        <section class="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 md:p-8 mb-7">
+            <h2 class="text-xl font-semibold mb-4">Performance Benchmarks</h2>
+            <div class="table-wrap">
+                <table class="w-full text-sm border-collapse">
+                    <thead>
+                        <tr class="border-b border-white/20 text-white/80 text-left">
+                            <th class="py-3 pr-4">Metric</th>
+                            <th class="py-3 pr-4">Value</th>
+                            <th class="py-3">Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in benchmarks %}
+                        <tr class="border-b border-white/10">
+                            <td class="py-3 pr-4 text-white">{{ row.metric }}</td>
+                            <td class="py-3 pr-4 text-white/90 font-medium">{{ row.value }}</td>
+                            <td class="py-3 text-white/70">{{ row.notes }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-white/65">
+                <p><span class="text-white/80">Model:</span> {{ model_path }}</p>
+                <p><span class="text-white/80">Device:</span> {{ device }}</p>
+                <p><span class="text-white/80">Threshold:</span> {{ "%.6f"|format(threshold) }}</p>
+                <p><span class="text-white/80">Quantum active:</span> {{ quantum_active }}</p>
+                <p><span class="text-white/80">TTA active:</span> {{ tta_active }}</p>
+                <p><span class="text-white/80">Decision margin:</span> {{ decision_margin }}</p>
+            </div>
+        </section>
+
+        <section class="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 md:p-8">
+            <h2 class="text-xl font-semibold mb-3">Architecture Diagram (Inline)</h2>
+            <p class="text-white/70 text-sm mb-4">
+                Embedded from the live <code>/visualization</code> route so this card always reflects the currently loaded model.
+            </p>
+            <iframe src="/visualization" title="Model Architecture Visualization" loading="lazy"></iframe>
+        </section>
+    </main>
+</body>
+</html>
